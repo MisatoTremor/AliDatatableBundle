@@ -1,5 +1,5 @@
 <form action="{{ path(delete_route , { 'id': dt_item }) }}" method="post" style="float:right">
     {{ delete_form_prototype | replace ({'@id':dt_item}) | raw  }}
-    <a class="button-delete" href="#" type="submit">Delete</a>
+    <button class="btn btn-danger" href="#" type="submit">{{ 'button.delete'|trans }}</button>
 </form>
-<a href="{{ path(edit_route,{'id':dt_item}) }}">edit</a>
+<a class="btn btn-primary" href="{{ path(edit_route,{'id':dt_item}) }}">{{ 'button.edit'|trans }}</a>

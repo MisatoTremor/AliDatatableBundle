@@ -10,6 +10,7 @@ use Ali\DatatableBundle\Util\Factory\Query\QueryInterface,
     Ali\DatatableBundle\Util\Factory\Query\DoctrineBuilder,
     Ali\DatatableBundle\Util\Formatter\Renderer,
     Ali\DatatableBundle\Util\Factory\Prototype\PrototypeBuilder;
+use Symfony\Component\Form\Form;
 
 class Datatable
 {
@@ -53,8 +54,14 @@ class Datatable
     /** @var boolean */
     protected $_search;
 
+    /** @var boolean */
+    protected $_search_all;
+
     /** @var array */
     protected $_search_fields = array();
+
+    /** @var Form */
+    protected $_form = NULL;
 
     /** @var array */
     protected static $_instances = array();
@@ -116,6 +123,21 @@ class Datatable
     }
 
     /**
+     * get data
+     *
+     * @param int $hydration_mode
+     * @param bool $has_mutliple
+     *
+     * @return array
+     */
+    public function getObjects($hydration_mode = Query::HYDRATE_ARRAY)
+    {
+        list($data, $objects) = $this->_queryBuilder->getData($hydration_mode, !empty($this->_multiple));
+
+        return $objects;
+    }
+
+    /**
      * execute
      * 
      * @param int $hydration_mode
@@ -126,7 +148,7 @@ class Datatable
     {
         $request       = $this->_request;
         $iTotalRecords = $this->_queryBuilder->getTotalRecords();
-        list($data, $objects) = $this->_queryBuilder->getData($hydration_mode);
+        list($data, $objects) = $this->_queryBuilder->getData($hydration_mode, !empty($this->_multiple));
         $id_index      = array_search('_identifier_', array_keys($this->getFields()));
         $ids           = array();
         array_walk($data, function($val, $key) use ($data, $id_index, &$ids) {
@@ -150,8 +172,9 @@ class Datatable
         }
         if (!empty($this->_multiple))
         {
-            array_walk($data, function($val, $key) use(&$data, $ids) {
-                array_unshift($val, "<input type='checkbox' name='dataTables[actions][]' value='{$ids[$key]}' />");
+            $input_name = $this->_form instanceof Form ? $this->_form->getName() : 'dataTables';
+            array_walk($data, function($val, $key) use(&$data, $ids, $input_name) {
+                array_unshift($val, "<input type='checkbox' name='{$input_name}[selected][]' value='{$ids[$key]}' />");
                 $data[$key] = $val;
             });
         }
@@ -293,6 +316,16 @@ class Datatable
     public function getSearch()
     {
         return $this->_search;
+    }
+
+    /**
+     * get search all
+     *
+     * @return boolean
+     */
+    public function getSearchAll()
+    {
+        return $this->_search_all;
     }
 
     /**
@@ -498,6 +531,20 @@ class Datatable
     }
 
     /**
+     * set search all
+     *
+     * @param bool $search
+     *
+     * @return Datatable
+     */
+    public function setSearchAll($search_all)
+    {
+        $this->_search_all = $search_all;
+        $this->_queryBuilder->setSearchAll($search_all);
+        return $this;
+    }
+
+    /**
      * set datatable identifier
      * 
      * @param string $id
@@ -578,7 +625,34 @@ class Datatable
     public function setSearchFields(array $search_fields)
     {
         $this->_search_fields = $search_fields;
+        $this->_queryBuilder->setSearchFields($search_fields);
         return $this;
     }
 
+    /**
+     * set search fields
+     *
+     * @example
+     *
+     *      ->setSearchFields(array(0,2,5))
+     *
+     * @param array $search_paths
+     *
+     * @return \Ali\DatatableBundle\Util\Datatable
+     */
+    public function setSearchPaths(array $search_paths)
+    {
+        $this->_queryBuilder->setSearchPaths($search_paths);
+        return $this;
+    }
+
+    /**
+     * @param Form $form
+     * @return $this
+     */
+    public function setForm(Form $form){
+        $this->_form = $form;
+
+        return $this;
+    }
 }

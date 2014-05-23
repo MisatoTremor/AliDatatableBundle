@@ -2,6 +2,7 @@
 
 namespace Ali\DatatableBundle\Util\Factory\Query;
 
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Query;
 use Doctrine\ORM\Query\Expr\Join;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -52,7 +53,13 @@ class DoctrineBuilder implements QueryInterface
     protected $renderer = NULL;
 
     /** @var boolean */
-    protected $search = FALSE;
+    protected $search_all = FALSE;
+
+    /** @var array */
+    protected $search_fields = array();
+
+    /** @var array */
+    protected $search_paths = array();
 
     /**
      * class constructor 
@@ -68,6 +75,42 @@ class DoctrineBuilder implements QueryInterface
     }
 
     /**
+     * Returns the numeral index of $value in associative array $haystack.
+     *
+     * @param $needle
+     * @param $haystack
+     * @return bool|int
+     */
+    static function array_search_index($needle, $haystack)
+    {
+        $index = 0;
+        foreach ($haystack as $key => $value) {
+            if($value === $needle){
+                return $index;
+            }
+            $index++;
+        }
+        return false;
+    }
+
+    /**
+     * Returns a string of $length characters containing symbols from $charset.
+     *
+     * @param int $length
+     * @param string $charset
+     * @return string
+     */
+    static function randString($length, $charset='abcdefghijklmnopqrstuvwxyz')
+    {
+        $str = '';
+        $count = strlen($charset) - 1;
+        while ($length--) {
+            $str .= $charset[mt_rand(0, $count)];
+        }
+        return $str;
+    }
+
+    /**
      * get the search dql
      * 
      * @return string
@@ -78,14 +121,42 @@ class DoctrineBuilder implements QueryInterface
         {
             $request       = $this->request;
             $search_fields = array_values($this->fields);
+            $expressions = array();
             foreach ($search_fields as $i => $search_field)
             {
-                $search_param = $request->get("sSearch_{$i}");
-                if ($request->get("sSearch_{$i}") !== false && !empty($search_param))
-                {
-                    $queryBuilder->andWhere(" $search_field like '%{$request->get("sSearch_{$i}")}%' ");
+                if(in_array($i, $this->search_fields)) {
+                    if($this->search_all) {
+                        $search_param = $request->get("sSearch");
+                    } else {
+                        $search_param = $request->get("sSearch_{$i}");
+                    }
+                    if ($search_param !== false && !empty($search_param))
+                    {
+                        if(isset($this->search_paths[$i])) {
+                            $alias = self::randString(8);
+                            $queryBuilder->leftJoin($search_field, $alias);
+                            $expressions[] = $queryBuilder->expr()->like(
+                                $alias . '.' . $this->search_paths[$i],
+                                $queryBuilder->expr()->literal("%{$search_param}%")
+                            );
+                        } else {
+                            $expressions[] = $queryBuilder->expr()->like(
+                                $search_field,
+                                $queryBuilder->expr()->literal("%{$search_param}%")
+                            );
+                        }
+                    }
                 }
             }
+            if($this->search_all) {
+                $expr = $queryBuilder->expr()->orX();
+            } else {
+                $expr = $queryBuilder->expr()->andX();
+            }
+            foreach ($expressions as $expression) {
+                $expr->add($expression);
+            }
+            $queryBuilder->andWhere($expr);
         }
     }
 
@@ -164,16 +235,18 @@ class DoctrineBuilder implements QueryInterface
      * get data
      * 
      * @param int $hydration_mode
-     * 
+     * @param bool $has_mutliple
+     *
      * @return array 
      */
-    public function getData($hydration_mode)
+    public function getData($hydration_mode, $has_mutliple)
     {
         $request    = $this->request;
         $dql_fields = array_values($this->fields);
         if ($request->get('iSortCol_0') != null)
         {
-            $order_field = current(explode(' as ', $dql_fields[$request->get('iSortCol_0')]));
+            $order_field_index = max(0, $request->get('iSortCol_0') - ($has_mutliple ? 1 : 0));
+            $order_field = current(explode(' as ', $dql_fields[$order_field_index]));
         }
         else
         {
@@ -375,6 +448,45 @@ class DoctrineBuilder implements QueryInterface
     public function setSearch($search)
     {
         $this->search = $search;
+        return $this;
+    }
+
+    /**
+     * set search all
+     *
+     * @param bool $search_all
+     *
+     * @return Datatable
+     */
+    public function setSearchAll($search_all)
+    {
+        $this->search_all = $search_all;
+        return $this;
+    }
+
+    /**
+     * set search fields
+     *
+     * @param array $search_fields
+     *
+     * @return Datatable
+     */
+    function setSearchFields($search_fields)
+    {
+        $this->search_fields = $search_fields;
+        return $this;
+    }
+
+    /**
+     * set search fields
+     *
+     * @param array $search_paths
+     *
+     * @return Datatable
+     */
+    function setSearchPaths($search_paths)
+    {
+        $this->search_paths = $search_paths;
         return $this;
     }
 

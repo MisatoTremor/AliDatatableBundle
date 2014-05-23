@@ -16,10 +16,11 @@ interface QueryInterface
      * get data
      * 
      * @param int $hydration_mode
-     * 
+     * @param bool $has_mutliple
+     *
      * @return array
      */
-    function getData($hydration_mode);
+    function getData($hydration_mode, $has_mutliple);
 
     /**
      * set entity
@@ -111,7 +112,25 @@ interface QueryInterface
      *
      * @return Datatable
      */
-    function setSearch($search); 
+    function setSearch($search);
+
+    /**
+     * set search all
+     *
+     * @param bool $search_all
+     *
+     * @return Datatable
+     */
+    function setSearchAll($search_all);
+
+    /**
+     * set search fields
+     *
+     * @param array $search_fields
+     *
+     * @return Datatable
+     */
+    function setSearchFields($search_fields);
 
     /**
      * add join
